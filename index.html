@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Библиотека книг</title>
+  <style>
+    :root {
+      --bg: #0f172a;        /* slate-900 */
+      --card: #111827;      /* gray-900 */
+      --text: #e5e7eb;      /* gray-200 */
+      --muted: #9ca3af;     /* gray-400 */
+      --accent: #22c55e;    /* green-500 */
+      --overlay: rgba(0,0,0,.7);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: radial-gradient(1200px 600px at 80% -100px, #1f2937 0, var(--bg) 40%);
+      color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      min-height: 100dvh; display: flex; flex-direction: column;
+    }
+    header { padding: 24px 20px 8px; text-align: center; }
+    header h1 { margin: 0 0 6px; font-weight: 800; letter-spacing: .2px; }
+    header p { margin: 0; color: var(--muted); }
+
+    .grid {
+      display: grid; gap: 20px; padding: 24px; width: 100%; max-width: 1100px; margin: 0 auto 60px; 
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+
+    .book {
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius); overflow: hidden; cursor: pointer;
+      transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .book:hover { transform: translateY(-3px) scale(1.01); border-color: rgba(34,197,94,.4); box-shadow: 0 10px 24px rgba(0,0,0,.35); }
+    .cover { aspect-ratio: 3/4; width: 100%; object-fit: cover; display: block; background:#0b1022; }
+    .info { padding: 12px; }
+    .title { font-size: 15px; font-weight: 700; line-height: 1.25; margin: 0 0 6px; }
+    .author { font-size: 13px; color: var(--muted); margin: 0; }
+
+    /* Modal */
+    dialog::backdrop { background: var(--overlay); backdrop-filter: blur(2px); }
+    dialog { width: min(900px, 92vw); padding: 0; border: none; border-radius: calc(var(--radius) + 4px); overflow: hidden; background: #0b1022; color: var(--text); }
+    .modal { display: grid; grid-template-columns: 260px 1fr; gap: 20px; }
+    .modal .left { background: #0b1022; padding: 18px; display: flex; align-items: center; justify-content: center; }
+    .modal .left img { width: 100%; height: auto; border-radius: 12px; border: 1px solid rgba(255,255,255,.08); }
+    .modal .right { padding: 20px 20px 16px 0; }
+    .modal h2 { margin: 10px 0 6px; font-size: 28px; }
+    .modal .author { font-size: 14px; margin-bottom: 12px; }
+    .rating { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 999px; font-size: 14px; }
+    .desc { margin: 14px 0 14px; color: #d1d5db; line-height: 1.5; }
+    .price { font-weight: 700; font-size: 18px; margin: 0 0 16px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn { appearance: none; border: 1px solid rgba(255,255,255,.18); background: linear-gradient(180deg, rgba(34,197,94,.12), rgba(34,197,94,.08)); color: #ecfdf5; font-weight: 700; letter-spacing: .2px; padding: 10px 14px; border-radius: 12px; cursor: pointer; transition: transform .06s ease; text-decoration: none; display:inline-flex; align-items:center; gap:8px; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn.secondary { background: transparent; color: var(--text); }
+
+    @media (max-width: 720px) { .modal { grid-template-columns: 1fr; } .modal .right{ padding: 0 18px 18px; } }
+    footer { color: var(--muted); text-align:center; padding: 20px; font-size: 12px; }
+    a { color: #86efac; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Библиотека книг</h1>
+    <p>Нажмите на обложку, чтобы посмотреть описание, оценку и ссылку на Литрес</p>
+  </header>
+
+  <main class="grid" id="grid"></main>
+
+  <dialog id="bookDialog">
+    <div class="modal">
+      <div class="left"><img id="dlgCover" alt="Обложка" /></div>
+      <div class="right">
+        <button id="dlgClose" class="btn secondary" style="float:right;">Закрыть</button>
+        <h2 id="dlgTitle"></h2>
+        <div class="author" id="dlgAuthor"></div>
+        <div class="rating" id="dlgRating"></div>
+        <p class="desc" id="dlgDesc"></p>
+        <p class="price" id="dlgPrice"></p>
+        <div class="actions">
+          <a id="dlgLink" class="btn" target="_blank" rel="noopener">Открыть на Литрес</a>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <footer>
+    Данные (описание, цена, рейтинг) взяты с <a href="https://www.litres.ru/" target="_blank" rel="noopener">Литрес</a>. Обложки загружаются с CDN Литрес.
+  </footer>
+
+  <script>
+    // Исходные данные (ссылки и строки можно обновить в любое время)
+    const books = [
+      {
+        title: "Три мушкетера",
+        author: "Александр Дюма",
+        cover: "https://cdn.litres.ru/pub/c/cover_415/122719.jpg",
+        rating: "★ 4.8 (778 оценок)",
+        price: "$1.22",
+        desc: "Известнейший историко‑приключенческий роман о приключениях д'Артаньяна, Атоса, Портоса и Арамиса. Под девизом «Один за всех и все за одного» они раскрывают дворцовые интриги и спасают честь королевы.",
+        link: "https://litres.com/book/aleksandr-duma/tri-mushketera-122719/"
+      },
+      {
+        title: "Остров сокровищ",
+        author: "Роберт Льюис Стивенсон",
+        cover: "https://cdn.litres.ru/pub/c/cover_415/17008196.jpg",
+        rating: "★ 4.6 (63 оценки)",
+        price: "59,90 ₽",
+        desc: "Классика приключений: подросток Джим Хокинс находит карту Флинта и вместе с товарищами отправляется на поиски кладов, сталкиваясь с пиратами и опасностями.",
+        link: "https://www.litres.ru/book/robert-luis-stivenson/ostrov-sokrovisch-17008196/"
+      },
+      {
+        title: "Пять недель на воздушном шаре",
+        author: "Жюль Верн",
+        cover: "https://cdn.litres.ru/pub/c/cover_415/121760.jpg",
+        rating: "★ 4.7 (586 оценок)",
+        price: "Бесплатно",
+        desc: "Экспедиция доктора Фергюссона через Африку на воздушном шаре «Виктория»: научные расчёты, экзотические ландшафты и опасные приключения.",
+        link: "https://www.litres.ru/book/zhul-vern/pyat-nedel-na-vozdushnom-share-121760/"
+      }
+    ];
+
+    const grid = document.getElementById('grid');
+    const dlg = document.getElementById('bookDialog');
+    const $ = (id) => document.getElementById(id);
+
+    function createCard(b){
+      const card = document.createElement('article');
+      card.className = 'book';
+      card.innerHTML = `
+        <img class="cover" alt="${b.title}" src="${b.cover}" loading="lazy"/>
+        <div class="info">
+          <h3 class="title">${b.title}</h3>
+          <p class="author">${b.author}</p>
+        </div>`;
+      card.addEventListener('click', () => openBook(b));
+      return card;
+    }
+
+    function openBook(b){
+      $('dlgCover').src = b.cover;
+      $('dlgCover').alt = b.title;
+      $('dlgTitle').textContent = b.title;
+      $('dlgAuthor').textContent = b.author;
+      $('dlgRating').textContent = b.rating;
+      $('dlgDesc').textContent = b.desc;
+      $('dlgPrice').textContent = `Цена: ${b.price}`;
+      const link = $('dlgLink');
+      link.href = b.link;
+      link.onclick = () => {
+        // При необходимости можно отправлять аналитику кликов
+      };
+      if (!dlg.open) dlg.showModal();
+    }
+
+    $('dlgClose').addEventListener('click', () => dlg.close());
+
+    books.forEach(b => grid.appendChild(createCard(b)));
+  </script>
+</body>
+</html>
